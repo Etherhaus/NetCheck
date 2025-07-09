@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtualenv
+venv/
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Executable
+*.exe
+
+# Settings
+settings.ini
+custom_services.json
+
+# Environment files
+.env
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
