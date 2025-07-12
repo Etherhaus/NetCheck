@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import (
     Qt, QThread, pyqtSignal, QObject, QPropertyAnimation, QEasingCurve, QRectF,
     QRegularExpression, QRegularExpressionMatchIterator, QUrl, QTimer, QSettings,
-    QPoint, QSize, QMimeData
+    QPoint, QSize, QMimeData, QTranslator, QLocale, QLibraryInfo
 )
 from PyQt6.QtGui import (
     QColor, QPalette, QIcon, QAction, QFont, QTextCharFormat, QSyntaxHighlighter,
@@ -36,7 +36,6 @@ from PyQt6.QtCharts import (
     QBarCategoryAxis, QValueAxis, QStackedBarSeries, QLineSeries, QCategoryAxis
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWebEngineCore import QWebEngineUrlRequestInterceptor, QWebEngineUrlSchemeHandler
 from PyQt6.QtWebEngineCore import QWebEngineUrlRequestInterceptor
 import qasync
 from urllib.parse import urlparse
@@ -58,7 +57,7 @@ COLORS = {
     "danger": "#ff1b1c"
 }
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.5"
 APP_NAME = "NetCheck by Etherhaus"
 DEFAULT_TIMEOUT = 10
 DEFAULT_DNS_SERVER = "8.8.8.8"
@@ -78,6 +77,7 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
 logger = logging.getLogger(__name__)
 
 class ModernRoundedWidget(QWidget):
@@ -464,12 +464,10 @@ class LinkDialog(QDialog):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(15)
-
         self.url_label = QLabel(f"<h3>URL:</h3><p>{url}</p>")
         self.url_label.setWordWrap(True)
         self.url_label.setStyleSheet(f"font-size: 14px; color: {COLORS['text_secondary']};")
         main_layout.addWidget(self.url_label)
-
         self.copy_btn = ModernAnimatedButton("Copy to Clipboard")
         self.copy_btn.setStyleSheet(self.copy_btn.styleSheet() + f"""
             QPushButton {{
@@ -483,11 +481,9 @@ class LinkDialog(QDialog):
         """)
         self.copy_btn.clicked.connect(lambda: self.copy_to_clipboard(url))
         main_layout.addWidget(self.copy_btn)
-
         qr_label = QLabel("QR Code:")
         qr_label.setStyleSheet(f"font-size: 16px; font-weight: 600; color: {COLORS['orange']};")
         main_layout.addWidget(qr_label)
-
         qr = pyqrcode.create(url)
         buffer = io.BytesIO()
         qr.svg(buffer, scale=5)
@@ -496,7 +492,6 @@ class LinkDialog(QDialog):
         self.qr_label.setPixmap(self.svg_to_pixmap(svg_data))
         self.qr_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(self.qr_label)
-
         close_btn = ModernAnimatedButton("Close")
         close_btn.setStyleSheet(close_btn.styleSheet() + f"""
             QPushButton {{
@@ -544,17 +539,14 @@ class ServiceDetailsDialog(QDialog):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(15)
-
         header = QLabel(f"<h2 style='color:{COLORS['orange']}'>{service_name}</h2>")
         header.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header.setStyleSheet(f"font-size: 20px; font-weight: 600; margin-bottom: 10px; color: {COLORS['orange']}")
         main_layout.addWidget(header)
-
         basic_group = ModernRoundedWidget(self, radius=10, background_color=QColor(COLORS["medium_bg"]))
         basic_layout = QVBoxLayout(basic_group)
         basic_layout.setContentsMargins(15, 15, 15, 15)
         basic_layout.setSpacing(10)
-
         status_color = COLORS["success"] if result['status'] == "available" else COLORS["danger"] if result['status'] == "blocked" else COLORS["warning"]
         status_label = QLabel(f"Status: {result['status'].capitalize()}")
         status_label.setStyleSheet(f"""
@@ -567,28 +559,22 @@ class ServiceDetailsDialog(QDialog):
             border-left: 3px solid {status_color};
         """)
         basic_layout.addWidget(status_label)
-
         message_label = QLabel(f"Message: {result['message']}")
         message_label.setStyleSheet(f"font-size: 14px; color: {COLORS['text_secondary']}; padding: 5px;")
         basic_layout.addWidget(message_label)
-
         if result['response_time'] > 0:
             time_label = QLabel(f"Response Time: {result['response_time']:.2f} ms")
             time_label.setStyleSheet(f"font-size: 14px; color: {COLORS['text_secondary']}; padding: 5px;")
             basic_layout.addWidget(time_label)
-
         timestamp_label = QLabel(f"Checked at: {result.get('timestamp', 'N/A')}")
         timestamp_label.setStyleSheet(f"font-size: 13px; color: {COLORS['text_secondary']}; opacity: 0.8; padding: 5px;")
         basic_layout.addWidget(timestamp_label)
-
         main_layout.addWidget(basic_group)
-
         if result['details']:
             details_group = ModernRoundedWidget(self, radius=10, background_color=QColor(COLORS["medium_bg"]))
             details_layout = QVBoxLayout(details_group)
             details_layout.setContentsMargins(15, 15, 15, 15)
             details_layout.setSpacing(10)
-
             details_title = QLabel("Technical Details")
             details_title.setStyleSheet(f"""
                 font-size: 16px;
@@ -597,7 +583,6 @@ class ServiceDetailsDialog(QDialog):
                 margin-bottom: 10px;
             """)
             details_layout.addWidget(details_title)
-
             details_text = QTextEdit()
             details_text.setReadOnly(True)
             details_text.setFont(QFont("Consolas", 11))
@@ -608,7 +593,6 @@ class ServiceDetailsDialog(QDialog):
                 border-radius: 6px;
                 padding: 12px;
             """)
-
             url = None
             if 'url' in result['details']:
                 url = result['details']['url']
@@ -616,7 +600,6 @@ class ServiceDetailsDialog(QDialog):
                 url = f"http://{result['details']['host']}"
                 if 'port' in result['details']:
                     url += f":{result['details']['port']}"
-
             if url:
                 link_btn = ModernAnimatedButton("Show Link Info")
                 link_btn.setStyleSheet(link_btn.styleSheet() + f"""
@@ -631,12 +614,10 @@ class ServiceDetailsDialog(QDialog):
                 """)
                 link_btn.clicked.connect(lambda: self.show_link_dialog(url))
                 details_layout.addWidget(link_btn)
-
             details_str = json.dumps(result['details'], indent=2)
             details_text.setPlainText(details_str)
             details_layout.addWidget(details_text)
             main_layout.addWidget(details_group)
-
         close_btn = ModernAnimatedButton("Close")
         close_btn.setStyleSheet(close_btn.styleSheet() + f"""
             QPushButton {{
@@ -658,9 +639,11 @@ class ServiceDetailsDialog(QDialog):
         dialog.exec()
 
 class AddCustomServiceDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, service_name=None, service_data=None):
         super().__init__(parent)
-        self.setWindowTitle("Add Custom Service")
+        self.original_service_name = service_name
+        self.service_data = service_data or {}
+        self.setWindowTitle("Add Custom Service" if not service_name else "Edit Custom Service")
         self.setMinimumSize(500, 450)
         self.setStyleSheet(f"""
             QDialog {{
@@ -672,14 +655,14 @@ class AddCustomServiceDialog(QDialog):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(15)
-
         form_group = ModernRoundedWidget(self, radius=10, background_color=QColor(COLORS["medium_bg"]))
         form_layout = QFormLayout(form_group)
         form_layout.setContentsMargins(15, 15, 15, 15)
         form_layout.setSpacing(12)
         form_layout.setVerticalSpacing(15)
-
         self.service_name_edit = QLineEdit()
+        if service_name:
+            self.service_name_edit.setText(service_name)
         self.service_name_edit.setPlaceholderText("Service Name")
         self.service_name_edit.setStyleSheet(f"""
             QLineEdit {{
@@ -695,9 +678,12 @@ class AddCustomServiceDialog(QDialog):
                 border: 1px solid {COLORS["orange"]};
             }}
         """)
-
         self.service_url_edit = QLineEdit()
-        self.service_url_edit.setPlaceholderText("URL or Host")
+        if 'host' in self.service_data:
+            self.service_url_edit.setText(self.service_data['host'])
+        elif 'url' in self.service_data:
+            self.service_url_edit.setText(self.service_data['url'])
+        self.service_url_edit.setPlaceholderText("URL/Host:")
         self.service_url_edit.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {COLORS["light_bg"]};
@@ -712,9 +698,13 @@ class AddCustomServiceDialog(QDialog):
                 border: 1px solid {COLORS["orange"]};
             }}
         """)
-
         self.service_type_combo = QComboBox()
         self.service_type_combo.addItems(["HTTP/HTTPS", "TCP", "UDP", "DNS"])
+        if 'type' in self.service_data:
+            if self.service_data['type'] == 'https':
+                self.service_type_combo.setCurrentText("HTTP/HTTPS")
+            else:
+                self.service_type_combo.setCurrentText(self.service_data['type'].upper())
         self.service_type_combo.setStyleSheet(f"""
             QComboBox {{
                 background-color: {COLORS["light_bg"]};
@@ -740,12 +730,13 @@ class AddCustomServiceDialog(QDialog):
                 border: none;
             }}
         """)
-
         self.service_category_combo = QComboBox()
         self.service_category_combo.addItems([
             "VPN", "Social", "Messaging", "Streaming",
             "Gaming", "Email", "DNS", "AI", "Cloud", "Other"
         ])
+        if 'category' in self.service_data:
+            self.service_category_combo.setCurrentText(self.service_data['category'])
         self.service_category_combo.setStyleSheet(f"""
             QComboBox {{
                 background-color: {COLORS["light_bg"]};
@@ -771,15 +762,16 @@ class AddCustomServiceDialog(QDialog):
                 border: none;
             }}
         """)
-
         self.port_group = QWidget()
         self.port_layout = QFormLayout(self.port_group)
         self.port_layout.setContentsMargins(0, 0, 0, 0)
         self.port_layout.setSpacing(8)
-
         self.service_port_spin = QSpinBox()
         self.service_port_spin.setRange(1, 65535)
-        self.service_port_spin.setValue(80)
+        if 'port' in self.service_data:
+            self.service_port_spin.setValue(self.service_data['port'])
+        else:
+            self.service_port_spin.setValue(80)
         self.service_port_spin.setStyleSheet(f"""
             QSpinBox {{
                 background-color: {COLORS["light_bg"]};
@@ -801,23 +793,18 @@ class AddCustomServiceDialog(QDialog):
         """)
         self.port_layout.addRow("Port:", self.service_port_spin)
         self.port_group.hide()
-
         self.service_type_combo.currentTextChanged.connect(
             lambda text: self.port_group.setVisible(text in ["TCP", "UDP"]))
-
         form_layout.addRow("Name:", self.service_name_edit)
         form_layout.addRow("URL/Host:", self.service_url_edit)
         form_layout.addRow("Type:", self.service_type_combo)
         form_layout.addRow("Category:", self.service_category_combo)
         form_layout.addRow(self.port_group)
-
         main_layout.addWidget(form_group)
-
         buttons_layout = QHBoxLayout()
         buttons_layout.setContentsMargins(0, 0, 0, 0)
         buttons_layout.setSpacing(15)
-
-        self.add_btn = ModernAnimatedButton("Add")
+        self.add_btn = ModernAnimatedButton("Add" if not service_name else "Save")
         self.add_btn.setStyleSheet(self.add_btn.styleSheet() + f"""
             QPushButton {{
                 background-color: {COLORS["success"]};
@@ -829,7 +816,6 @@ class AddCustomServiceDialog(QDialog):
                 background-color: #5fb85f;
             }}
         """)
-
         cancel_btn = ModernAnimatedButton("Cancel")
         cancel_btn.setStyleSheet(cancel_btn.styleSheet() + f"""
             QPushButton {{
@@ -841,20 +827,23 @@ class AddCustomServiceDialog(QDialog):
                 background-color: {COLORS["khaki"]};
             }}
         """)
-
         buttons_layout.addWidget(self.add_btn)
         buttons_layout.addWidget(cancel_btn)
         main_layout.addLayout(buttons_layout)
-
         cancel_btn.clicked.connect(self.reject)
 
-class ModernMainWindow(QMainWindow):
+    def tr(self, text):
+        return text
+
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(APP_NAME)
         self.setMinimumSize(1100, 750)
         self.setWindowIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon))
         self.set_dark_palette()
+        self.translator = QTranslator()
+        self.current_language = "en"
         self.settings = QSettings(SETTINGS_FILE, QSettings.Format.IniFormat)
         self.load_settings()
         self.services = self._initialize_services()
@@ -945,10 +934,12 @@ class ModernMainWindow(QMainWindow):
     def load_settings(self):
         self.timeout = self.settings.value("timeout", DEFAULT_TIMEOUT, type=int)
         self.dns_server = self.settings.value("dns_server", DEFAULT_DNS_SERVER, type=str)
+        self.current_language = self.settings.value("language", "en", type=str)
 
     def save_settings(self):
         self.settings.setValue("timeout", self.timeout)
         self.settings.setValue("dns_server", self.dns_server)
+        self.settings.setValue("language", self.current_language)
         self.settings.sync()
 
     def load_custom_services(self) -> Dict:
@@ -1254,7 +1245,6 @@ class ModernMainWindow(QMainWindow):
         self.main_layout = QVBoxLayout(self.central_widget)
         self.main_layout.setContentsMargins(10, 10, 10, 10)
         self.main_layout.setSpacing(10)
-
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter.setHandleWidth(8)
         self.splitter.setStyleSheet(f"""
@@ -1264,12 +1254,10 @@ class ModernMainWindow(QMainWindow):
             }}
         """)
         self.main_layout.addWidget(self.splitter)
-
         self.left_panel = ModernRoundedWidget(self, radius=10, background_color=QColor(COLORS["medium_bg"]))
         self.left_layout = QVBoxLayout(self.left_panel)
         self.left_layout.setContentsMargins(15, 15, 15, 15)
         self.left_layout.setSpacing(15)
-
         title_label = QLabel("Service Selection")
         title_label.setStyleSheet(f"""
             color: {COLORS["baby_powder"]};
@@ -1279,7 +1267,6 @@ class ModernMainWindow(QMainWindow):
             font-family: 'Segoe UI';
         """)
         self.left_layout.addWidget(title_label)
-
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Search services...")
         self.search_box.setStyleSheet(f"""
@@ -1298,7 +1285,6 @@ class ModernMainWindow(QMainWindow):
         """)
         self.search_box.textChanged.connect(self.filter_services)
         self.left_layout.addWidget(self.search_box)
-
         self.tab_widget = QTabWidget()
         self.tab_widget.setStyleSheet(f"""
             QTabWidget {{
@@ -1332,16 +1318,13 @@ class ModernMainWindow(QMainWindow):
                 color: {COLORS["baby_powder"]};
             }}
         """)
-
         self.category_tabs = {}
         self.category_lists = {}
-
         for category in self.services.keys():
             tab = QWidget()
             tab_layout = QVBoxLayout(tab)
             tab_layout.setContentsMargins(10, 10, 10, 10)
             tab_layout.setSpacing(10)
-
             list_widget = QListWidget()
             list_widget.setStyleSheet(f"""
                 QListWidget {{
@@ -1358,21 +1341,22 @@ class ModernMainWindow(QMainWindow):
                     border-radius: 6px;
                     margin-bottom: 4px;
                 }}
+                QListWidget::item:selected {{
+                    background-color: {COLORS["khaki"]};
+                    color: {COLORS["black"]};
+                }}
             """)
-            list_widget.setSelectionMode(QListWidget.SelectionMode.NoSelection)
-
+            list_widget.setSelectionMode(QListWidget.SelectionMode.MultiSelection)
+            list_widget.itemSelectionChanged.connect(self.update_selection)
             tab_layout.addWidget(list_widget)
             tab_layout.addStretch()
-
             self.category_tabs[category] = tab
             self.category_lists[category] = list_widget
             self.tab_widget.addTab(tab, category)
-
         self.custom_tab = QWidget()
         self.custom_layout = QVBoxLayout(self.custom_tab)
         self.custom_layout.setContentsMargins(10, 10, 10, 10)
         self.custom_layout.setSpacing(10)
-
         self.custom_list = QListWidget()
         self.custom_list.setStyleSheet(f"""
             QListWidget {{
@@ -1389,12 +1373,15 @@ class ModernMainWindow(QMainWindow):
                 border-radius: 6px;
                 margin-bottom: 4px;
             }}
+            QListWidget::item:selected {{
+                background-color: {COLORS["khaki"]};
+                color: {COLORS["black"]};
+            }}
         """)
-        self.custom_list.setSelectionMode(QListWidget.SelectionMode.NoSelection)
-
+        self.custom_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection)
+        self.custom_list.itemSelectionChanged.connect(self.update_selection)
         custom_button_layout = QHBoxLayout()
         custom_button_layout.setSpacing(10)
-
         self.add_custom_service_btn = ModernAnimatedButton("Add Service")
         self.add_custom_service_btn.setStyleSheet(self.add_custom_service_btn.styleSheet() + f"""
             QPushButton {{
@@ -1408,7 +1395,19 @@ class ModernMainWindow(QMainWindow):
             }}
         """)
         self.add_custom_service_btn.clicked.connect(self.show_add_custom_service_dialog)
-
+        self.edit_custom_service_btn = ModernAnimatedButton("Edit Service")
+        self.edit_custom_service_btn.setStyleSheet(self.edit_custom_service_btn.styleSheet() + f"""
+            QPushButton {{
+                background-color: {COLORS["orange"]};
+                margin-top: 10px;
+                flex: 1;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS["khaki"]};
+            }}
+        """)
+        self.edit_custom_service_btn.clicked.connect(self.edit_selected_custom_service)
         self.remove_custom_service_btn = ModernAnimatedButton("Remove Service")
         self.remove_custom_service_btn.setStyleSheet(self.remove_custom_service_btn.styleSheet() + f"""
             QPushButton {{
@@ -1422,17 +1421,27 @@ class ModernMainWindow(QMainWindow):
             }}
         """)
         self.remove_custom_service_btn.clicked.connect(self.remove_selected_custom_service)
-
         custom_button_layout.addWidget(self.add_custom_service_btn)
+        custom_button_layout.addWidget(self.edit_custom_service_btn)
         custom_button_layout.addWidget(self.remove_custom_service_btn)
-
         self.custom_layout.addWidget(self.custom_list)
         self.custom_layout.addLayout(custom_button_layout)
         self.custom_layout.addStretch()
-
         self.tab_widget.addTab(self.custom_tab, "Custom Services")
         self.left_layout.addWidget(self.tab_widget)
-
+        self.check_selected_btn = ModernAnimatedButton("Check Selected")
+        self.check_selected_btn.setStyleSheet(self.check_selected_btn.styleSheet() + f"""
+            QPushButton {{
+                background-color: {COLORS["orange"]};
+                margin-top: 10px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS["khaki"]};
+            }}
+        """)
+        self.check_selected_btn.clicked.connect(self.check_selected_services)
+        self.left_layout.addWidget(self.check_selected_btn)
         self.right_panel = QTabWidget()
         self.right_panel.setStyleSheet(f"""
             QTabWidget::pane {{
@@ -1458,77 +1467,60 @@ class ModernMainWindow(QMainWindow):
                 color: {COLORS["baby_powder"]};
             }}
         """)
-
         self.results_tab = QWidget()
         self.results_layout = QVBoxLayout(self.results_tab)
         self.results_layout.setContentsMargins(15, 15, 15, 15)
         self.results_layout.setSpacing(15)
-
         results_title = QLabel("Check Results")
         results_title.setStyleSheet(f"color: {COLORS['baby_powder']}; font-size: 18px; font-weight: 600; font-family: 'Segoe UI';")
         self.results_layout.addWidget(results_title)
-
         self.summary_group = ModernRoundedWidget(self, radius=10, background_color=QColor(COLORS["medium_bg"]))
         self.summary_layout = QVBoxLayout(self.summary_group)
         self.summary_layout.setContentsMargins(15, 15, 15, 15)
         self.summary_layout.setSpacing(10)
-
         self.chart_view = QChartView()
         self.chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.chart_view.setMinimumHeight(250)
         self.summary_layout.addWidget(self.chart_view)
-
         stats_container = QWidget()
         stats_layout = QHBoxLayout(stats_container)
         stats_layout.setContentsMargins(0, 0, 0, 0)
         stats_layout.setSpacing(15)
-
         total_group = QWidget()
         total_layout = QVBoxLayout(total_group)
         total_layout.setContentsMargins(0, 0, 0, 0)
         total_layout.setSpacing(4)
-
         total_label = QLabel("Total")
         total_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 14px; font-family: 'Segoe UI';")
         self.total_value = QLabel("0")
         self.total_value.setStyleSheet(f"color: {COLORS['baby_powder']}; font-size: 20px; font-weight: 600; font-family: 'Segoe UI';")
-
         total_layout.addWidget(total_label)
         total_layout.addWidget(self.total_value)
-
         available_group = QWidget()
         available_layout = QVBoxLayout(available_group)
         available_layout.setContentsMargins(0, 0, 0, 0)
         available_layout.setSpacing(4)
-
         available_label = QLabel("Available")
         available_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 14px; font-family: 'Segoe UI';")
         self.available_value = QLabel("0")
         self.available_value.setStyleSheet(f"color: {COLORS['success']}; font-size: 20px; font-weight: 600; font-family: 'Segoe UI';")
-
         available_layout.addWidget(available_label)
         available_layout.addWidget(self.available_value)
-
         blocked_group = QWidget()
         blocked_layout = QVBoxLayout(blocked_group)
         blocked_layout.setContentsMargins(0, 0, 0, 0)
         blocked_layout.setSpacing(4)
-
         blocked_label = QLabel("Blocked")
         blocked_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 14px; font-family: 'Segoe UI';")
         self.blocked_value = QLabel("0")
         self.blocked_value.setStyleSheet(f"color: {COLORS['danger']}; font-size: 20px; font-weight: 600; font-family: 'Segoe UI';")
-
         blocked_layout.addWidget(blocked_label)
         blocked_layout.addWidget(self.blocked_value)
-
         stats_layout.addWidget(total_group)
         stats_layout.addWidget(available_group)
         stats_layout.addWidget(blocked_group)
-
         self.summary_layout.addWidget(stats_container)
         self.results_layout.addWidget(self.summary_group)
-
         self.results_table = QTableWidget()
         self.results_table.setStyleSheet(f"""
             QTableWidget {{
@@ -1554,24 +1546,26 @@ class ModernMainWindow(QMainWindow):
                 padding: 10px;
             }}
         """)
-
         self.results_table.setColumnCount(5)
-        self.results_table.setHorizontalHeaderLabels(["Service", "Category", "Status", "Response Time", "Details"])
+        self.results_table.setHorizontalHeaderLabels([
+            "Service",
+            "Category",
+            "Status",
+            "Response Time",
+            "Details"
+        ])
         self.results_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.results_table.verticalHeader().setVisible(False)
         self.results_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.results_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.results_layout.addWidget(self.results_table)
-
         self.logs_tab = QWidget()
         self.logs_layout = QVBoxLayout(self.logs_tab)
         self.logs_layout.setContentsMargins(15, 15, 15, 15)
         self.logs_layout.setSpacing(15)
-
         logs_title = QLabel("Activity Log")
         logs_title.setStyleSheet(f"color: {COLORS['baby_powder']}; font-size: 18px; font-weight: 600; font-family: 'Segoe UI';")
         self.logs_layout.addWidget(logs_title)
-
         self.logs_text = QTextEdit()
         self.logs_text.setStyleSheet(f"""
             QTextEdit {{
@@ -1587,12 +1581,10 @@ class ModernMainWindow(QMainWindow):
         self.logs_text.setReadOnly(True)
         self.logs_text.setFont(QFont("Consolas", 11))
         self.json_highlighter = ModernJSONHighlighter(self.logs_text.document())
-
         log_buttons = QWidget()
         log_buttons_layout = QHBoxLayout(log_buttons)
         log_buttons_layout.setContentsMargins(0, 0, 0, 0)
         log_buttons_layout.setSpacing(10)
-
         self.clear_logs_btn = ModernAnimatedButton("Clear Logs")
         self.clear_logs_btn.setStyleSheet(self.clear_logs_btn.styleSheet() + f"""
             QPushButton {{
@@ -1605,7 +1597,6 @@ class ModernMainWindow(QMainWindow):
             }}
         """)
         self.clear_logs_btn.clicked.connect(self.clear_logs)
-
         self.export_logs_btn = ModernAnimatedButton("Export Logs")
         self.export_logs_btn.setStyleSheet(self.export_logs_btn.styleSheet() + f"""
             QPushButton {{
@@ -1618,37 +1609,29 @@ class ModernMainWindow(QMainWindow):
             }}
         """)
         self.export_logs_btn.clicked.connect(self.export_logs)
-
         log_buttons_layout.addWidget(self.clear_logs_btn)
         log_buttons_layout.addWidget(self.export_logs_btn)
-
         self.logs_layout.addWidget(self.logs_text)
         self.logs_layout.addWidget(log_buttons)
-
         self.dashboard_tab = QWidget()
         self.dashboard_layout = QVBoxLayout(self.dashboard_tab)
         self.dashboard_layout.setContentsMargins(15, 15, 15, 15)
         self.dashboard_layout.setSpacing(15)
-
         self.web_view = QWebEngineView()
         self.load_dashboard()
         self.dashboard_layout.addWidget(self.web_view)
-
         self.settings_tab = QWidget()
         self.settings_layout = QVBoxLayout(self.settings_tab)
         self.settings_layout.setContentsMargins(15, 15, 15, 15)
         self.settings_layout.setSpacing(15)
-
         settings_title = QLabel("Settings")
         settings_title.setStyleSheet(f"color: {COLORS['baby_powder']}; font-size: 18px; font-weight: 600; font-family: 'Segoe UI';")
         self.settings_layout.addWidget(settings_title)
-
         self.settings_group = ModernRoundedWidget(self, radius=10, background_color=QColor(COLORS["medium_bg"]))
         self.settings_form = QFormLayout(self.settings_group)
         self.settings_form.setContentsMargins(15, 15, 15, 15)
         self.settings_form.setSpacing(15)
         self.settings_form.setVerticalSpacing(15)
-
         self.timeout_spin = QSpinBox()
         self.timeout_spin.setRange(1, 60)
         self.timeout_spin.setValue(self.timeout)
@@ -1672,9 +1655,8 @@ class ModernMainWindow(QMainWindow):
                 border: none;
             }}
         """)
-
         self.dns_server_edit = QLineEdit(self.dns_server)
-        self.dns_server_edit.setPlaceholderText("DNS server IP")
+        self.dns_server_edit.setPlaceholderText("DNS Server:")
         self.dns_server_edit.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {COLORS["light_bg"]};
@@ -1689,10 +1671,8 @@ class ModernMainWindow(QMainWindow):
                 border: 1px solid {COLORS["orange"]};
             }}
         """)
-
         self.settings_form.addRow("Timeout:", self.timeout_spin)
         self.settings_form.addRow("DNS Server:", self.dns_server_edit)
-
         self.apply_settings_btn = ModernAnimatedButton("Apply Settings")
         self.apply_settings_btn.setStyleSheet(self.apply_settings_btn.styleSheet() + f"""
             QPushButton {{
@@ -1705,20 +1685,16 @@ class ModernMainWindow(QMainWindow):
             }}
         """)
         self.apply_settings_btn.clicked.connect(self.apply_settings)
-
         self.settings_layout.addWidget(self.settings_group)
         self.settings_layout.addWidget(self.apply_settings_btn)
         self.settings_layout.addStretch()
-
-        self.right_panel.addTab(self.results_tab, "Results")
-        self.right_panel.addTab(self.logs_tab, "Logs")
+        self.right_panel.addTab(self.results_tab, "Check Results")
+        self.right_panel.addTab(self.logs_tab, "Activity Log")
         self.right_panel.addTab(self.dashboard_tab, "Dashboard")
         self.right_panel.addTab(self.settings_tab, "Settings")
-
         self.splitter.addWidget(self.left_panel)
         self.splitter.addWidget(self.right_panel)
         self.splitter.setSizes([350, 750])
-
         self.create_toolbar()
         self.populate_service_lists()
         self.populate_custom_list()
@@ -1734,20 +1710,18 @@ class ModernMainWindow(QMainWindow):
             }}
         """)
         self.addToolBar(toolbar)
-
         check_all_action = QAction(QIcon.fromTheme("view-refresh"), "Check All", self)
         check_all_action.triggered.connect(self.check_all_services)
-
+        check_selected_action = QAction(QIcon.fromTheme("view-refresh"), "Check Selected", self)
+        check_selected_action.triggered.connect(self.check_selected_services)
         clear_results_action = QAction(QIcon.fromTheme("edit-clear"), "Clear Results", self)
         clear_results_action.triggered.connect(self.clear_results)
-
         cancel_action = QAction(QIcon.fromTheme("process-stop"), "Cancel", self)
         cancel_action.triggered.connect(self.cancel_checks)
-
         settings_action = QAction(QIcon.fromTheme("preferences-system"), "Settings", self)
         settings_action.triggered.connect(lambda: self.right_panel.setCurrentIndex(3))
-
         toolbar.addAction(check_all_action)
+        toolbar.addAction(check_selected_action)
         toolbar.addAction(clear_results_action)
         toolbar.addAction(cancel_action)
         toolbar.addSeparator()
@@ -1765,11 +1739,9 @@ class ModernMainWindow(QMainWindow):
             }}
         """)
         self.setStatusBar(self.status_bar)
-
         self.status_label = QLabel("Ready")
         self.status_label.setStyleSheet(f"font-size: 13px; color: {COLORS['text_secondary']};")
         self.status_bar.addPermanentWidget(self.status_label, 1)
-
         self.progress_bar = QProgressBar()
         self.progress_bar.setStyleSheet(f"""
             QProgressBar {{
@@ -1797,6 +1769,7 @@ class ModernMainWindow(QMainWindow):
             for name, service in services.items():
                 item = QListWidgetItem(name)
                 item.setData(Qt.ItemDataRole.UserRole, service)
+                item.setData(Qt.ItemDataRole.UserRole + 1, category)
                 item.setFont(QFont("Segoe UI", 13))
                 self.category_lists[category].addItem(item)
 
@@ -1805,6 +1778,7 @@ class ModernMainWindow(QMainWindow):
         for name, service in self.custom_services.items():
             item = QListWidgetItem(name)
             item.setData(Qt.ItemDataRole.UserRole, service)
+            item.setData(Qt.ItemDataRole.UserRole + 1, "Custom Services")
             item.setFont(QFont("Segoe UI", 13))
             self.custom_list.addItem(item)
 
@@ -1822,16 +1796,31 @@ class ModernMainWindow(QMainWindow):
         self.services_to_check = all_services
         self.start_checks(all_services)
 
+    def check_selected_services(self):
+        selected_services = {}
+        for category, list_widget in self.category_lists.items():
+            for item in list_widget.selectedItems():
+                name = item.text()
+                service = item.data(Qt.ItemDataRole.UserRole)
+                selected_services[name] = service
+        for item in self.custom_list.selectedItems():
+            name = item.text()
+            service = item.data(Qt.ItemDataRole.UserRole)
+            selected_services[name] = service
+        if not selected_services:
+            QMessageBox.information(self, "Info", "No services selected for checking!")
+            return
+        self.services_to_check = selected_services
+        self.start_checks(selected_services)
+
     def start_checks(self, services_to_check: Dict):
         self.services_to_check = services_to_check
         self.clear_results()
         timeout = self.timeout_spin.value()
         dns_server = self.dns_server_edit.text()
-
         if not self.validate_ip(dns_server):
             QMessageBox.warning(self, "Invalid DNS Server", "Please enter a valid IP address for the DNS server!")
             return
-
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
         self.status_bar.showMessage("Checking services...")
@@ -1853,17 +1842,13 @@ class ModernMainWindow(QMainWindow):
     def update_results(self, name: str, status: str, message: str, result: dict):
         row_position = self.results_table.rowCount()
         self.results_table.insertRow(row_position)
-
         service_item = QTableWidgetItem(name)
         service_item.setData(Qt.ItemDataRole.UserRole, result)
         service_item.setFont(QFont("Segoe UI", 13))
-
         category_item = QTableWidgetItem(result.get("category", "Other"))
         category_item.setFont(QFont("Segoe UI", 13))
-
         status_item = QTableWidgetItem(status.capitalize())
         status_item.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
-
         if status == "available":
             status_item.setBackground(QColor(COLORS["success"]))
             status_item.setForeground(QColor(COLORS["black"]))
@@ -1873,12 +1858,10 @@ class ModernMainWindow(QMainWindow):
         else:
             status_item.setBackground(QColor(COLORS["warning"]))
             status_item.setForeground(QColor(COLORS["black"]))
-
         response_item = QTableWidgetItem(
             f"{result['response_time']:.2f} ms" if result['response_time'] > 0 else "N/A"
         )
         response_item.setFont(QFont("Segoe UI", 13))
-
         details_btn = ModernAnimatedButton("Details")
         details_btn.setStyleSheet(details_btn.styleSheet() + f"""
             QPushButton {{
@@ -1893,26 +1876,34 @@ class ModernMainWindow(QMainWindow):
         """)
         details_btn.setProperty("row", row_position)
         details_btn.clicked.connect(self.show_details_dialog)
-
         self.results_table.setItem(row_position, 0, service_item)
         self.results_table.setItem(row_position, 1, category_item)
         self.results_table.setItem(row_position, 2, status_item)
         self.results_table.setItem(row_position, 3, response_item)
         self.results_table.setCellWidget(row_position, 4, details_btn)
-
         total = self.results_table.rowCount()
         if hasattr(self, 'services_to_check') and self.services_to_check:
             self.progress_bar.setValue(int((total / len(self.services_to_check)) * 100))
-
         current_total = int(self.total_value.text())
         current_available = int(self.available_value.text())
         current_blocked = int(self.blocked_value.text())
-
         self.update_dashboard_stats(
             current_total + 1,
             current_available + (1 if status == "available" else 0),
             current_blocked + (1 if status == "blocked" else 0)
         )
+
+    def update_selection(self):
+        self.selected_services = {}
+        for category, list_widget in self.category_lists.items():
+            for item in list_widget.selectedItems():
+                name = item.text()
+                service = item.data(Qt.ItemDataRole.UserRole)
+                self.selected_services[name] = service
+        for item in self.custom_list.selectedItems():
+            name = item.text()
+            service = item.data(Qt.ItemDataRole.UserRole)
+            self.selected_services[name] = service
 
     def update_log(self, message: str):
         self.logs_text.append(message)
@@ -1932,20 +1923,17 @@ class ModernMainWindow(QMainWindow):
         series.setHoleSize(0.35)
         total_available = 0
         total_blocked = 0
-
         for category, data in chart_data.items():
             if data['total'] == 0:
                 continue
             total_available += data['available']
             total_blocked += data['blocked']
-
             slice = QPieSlice(
                 f"{category} ({data['available']}/{data['total']})",
                 data['available']
             )
             slice.setLabelVisible(True)
             slice.setLabelPosition(QPieSlice.LabelPosition.LabelOutside)
-
             if category == "VPN":
                 slice.setColor(QColor(COLORS["success"]))
             elif category == "Social":
@@ -1966,9 +1954,7 @@ class ModernMainWindow(QMainWindow):
                 slice.setColor(QColor("#9E9E9E"))
             else:
                 slice.setColor(QColor(COLORS["khaki"]))
-
             series.append(slice)
-
         if total_available + total_blocked > 0:
             summary_slice = QPieSlice(
                 f"Summary ({total_available}/{total_available + total_blocked})",
@@ -1978,7 +1964,6 @@ class ModernMainWindow(QMainWindow):
             summary_slice.setLabelPosition(QPieSlice.LabelPosition.LabelOutside)
             summary_slice.setColor(QColor(COLORS["orange"]))
             series.append(summary_slice)
-
         chart = QChart()
         chart.addSeries(series)
         chart.setTitle("Service Availability")
@@ -1994,28 +1979,26 @@ class ModernMainWindow(QMainWindow):
         self.total_value.setText(str(total))
         self.available_value.setText(str(available))
         self.blocked_value.setText(str(blocked))
-
         js_code = f"""
-        document.getElementById('total-checks').textContent = '{total}';
-        document.getElementById('available-services').textContent = '{available}';
-        document.getElementById('blocked-services').textContent = '{blocked}';
-
-        const statusElement = document.querySelector('.status');
-        if (statusElement) {{
-            if ({available} > 0 && {blocked} === 0) {{
-                statusElement.textContent = 'All services available';
-                statusElement.className = 'status status-available';
-            }} else if ({blocked} > 0 && {available} === 0) {{
-                statusElement.textContent = 'All services blocked';
-                statusElement.className = 'status status-blocked';
-            }} else if ({available} > 0 && {blocked} > 0) {{
-                statusElement.textContent = 'Some services blocked';
-                statusElement.className = 'status status-unknown';
-            }} else {{
-                statusElement.textContent = 'Beta version';
-                statusElement.className = 'status status-unknown';
+            document.getElementById('total-checks').textContent = '{total}';
+            document.getElementById('available-services').textContent = '{available}';
+            document.getElementById('blocked-services').textContent = '{blocked}';
+            const statusElement = document.querySelector('.status');
+            if (statusElement) {{
+                if ({available} > 0 && {blocked} === 0) {{
+                    statusElement.textContent = 'All services available';
+                    statusElement.className = 'status status-available';
+                }} else if ({blocked} > 0 && {available} === 0) {{
+                    statusElement.textContent = 'All services blocked';
+                    statusElement.className = 'status status-blocked';
+                }} else if ({available} > 0 && {blocked} > 0) {{
+                    statusElement.textContent = 'Some services blocked';
+                    statusElement.className = 'status status-unknown';
+                }} else {{
+                    statusElement.textContent = 'Beta version';
+                    statusElement.className = 'status status-unknown';
+                }}
             }}
-        }}
         """
         self.web_view.page().runJavaScript(js_code)
 
@@ -2023,10 +2006,8 @@ class ModernMainWindow(QMainWindow):
         self.status_bar.showMessage("Check completed")
         self.status_label.setText("Check completed")
         self.progress_bar.setVisible(False)
-
         total = int(self.total_value.text())
         available = int(self.available_value.text())
-
         if total > 0:
             percentage = (available / total) * 100
             QMessageBox.information(
@@ -2044,7 +2025,6 @@ class ModernMainWindow(QMainWindow):
         self.available_value.setText("0")
         self.blocked_value.setText("0")
         self.progress_bar.setValue(0)
-
         chart = QChart()
         chart.setTitle("Service Availability")
         chart.setBackgroundVisible(False)
@@ -2060,14 +2040,12 @@ class ModernMainWindow(QMainWindow):
         if not log_text:
             QMessageBox.warning(self, "Warning", "No log data to export!")
             return
-
         filename, _ = QFileDialog.getSaveFileName(
             self,
             "Save Log File",
             "",
             "Text Files (*.txt);;JSON Files (*.json);;HTML Files (*.html)"
         )
-
         if filename:
             try:
                 if filename.endswith('.json'):
@@ -2183,21 +2161,17 @@ class ModernMainWindow(QMainWindow):
 
     def show_add_custom_service_dialog(self):
         dialog = AddCustomServiceDialog(self)
-
         def add_service():
             name = dialog.service_name_edit.text().strip()
             url_host = dialog.service_url_edit.text().strip()
             service_type = dialog.service_type_combo.currentText()
             category = dialog.service_category_combo.currentText()
-
             if not name:
                 QMessageBox.warning(dialog, "Warning", "Please enter a service name!")
                 return
-
             if not url_host:
                 QMessageBox.warning(dialog, "Warning", "Please enter a URL or host!")
                 return
-
             if service_type in ["HTTP/HTTPS"]:
                 if not self.validate_url(url_host):
                     QMessageBox.warning(dialog, "Warning", "Please enter a valid URL!")
@@ -2206,9 +2180,7 @@ class ModernMainWindow(QMainWindow):
                 if not self.validate_host(url_host):
                     QMessageBox.warning(dialog, "Warning", "Please enter a valid host or IP address!")
                     return
-
             service = {"category": category}
-
             if service_type == "HTTP/HTTPS":
                 if not url_host.startswith(("http://", "https://")):
                     url_host = "https://" + url_host
@@ -2235,15 +2207,101 @@ class ModernMainWindow(QMainWindow):
                 except Exception as e:
                     QMessageBox.warning(dialog, "Warning", f"Invalid host address! {str(e)}")
                     return
-
             self.custom_services[name] = service
             self.populate_custom_list()
             self.save_custom_services()
             dialog.accept()
             QMessageBox.information(self, "Info", f"Service '{name}' added successfully!")
-
         dialog.add_btn.clicked.connect(add_service)
         dialog.exec()
+
+    def edit_selected_custom_service(self):
+        selected_items = self.custom_list.selectedItems()
+        if not selected_items:
+            QMessageBox.warning(self, "Warning", "No service selected!")
+            return
+        if len(selected_items) > 1:
+            QMessageBox.warning(self, "Warning", "Please select only one service to edit!")
+            return
+        item = selected_items[0]
+        name = item.text()
+        service_data = item.data(Qt.ItemDataRole.UserRole)
+        dialog = AddCustomServiceDialog(self, name, service_data)
+        def save_service():
+            new_name = dialog.service_name_edit.text().strip()
+            url_host = dialog.service_url_edit.text().strip()
+            service_type = dialog.service_type_combo.currentText()
+            category = dialog.service_category_combo.currentText()
+            if not new_name:
+                QMessageBox.warning(dialog, "Warning", "Please enter a service name!")
+                return
+            if not url_host:
+                QMessageBox.warning(dialog, "Warning", "Please enter a URL or host!")
+                return
+            if service_type in ["HTTP/HTTPS"]:
+                if not self.validate_url(url_host):
+                    QMessageBox.warning(dialog, "Warning", "Please enter a valid URL!")
+                    return
+            else:
+                if not self.validate_host(url_host):
+                    QMessageBox.warning(dialog, "Warning", "Please enter a valid host or IP address!")
+                    return
+            service = {"category": category}
+            if service_type == "HTTP/HTTPS":
+                if not url_host.startswith(("http://", "https://")):
+                    url_host = "https://" + url_host
+                service.update({
+                    "url": url_host,
+                    "type": "https",
+                    "description": f"Custom service: {new_name}"
+                })
+            elif service_type == "DNS":
+                service.update({
+                    "type": "dns",
+                    "host": url_host,
+                    "description": f"Custom DNS service: {new_name}"
+                })
+            else:
+                try:
+                    port = dialog.service_port_spin.value()
+                    service.update({
+                        "type": service_type.lower(),
+                        "host": url_host.split(':')[0],
+                        "port": port,
+                        "description": f"Custom {service_type} service: {new_name}"
+                    })
+                except Exception as e:
+                    QMessageBox.warning(dialog, "Warning", f"Invalid host address! {str(e)}")
+                    return
+            if new_name != name:
+                del self.custom_services[name]
+            self.custom_services[new_name] = service
+            self.populate_custom_list()
+            self.save_custom_services()
+            dialog.accept()
+            QMessageBox.information(self, "Info", f"Service '{new_name}' updated successfully!")
+        dialog.add_btn.clicked.connect(save_service)
+        dialog.exec()
+
+    def remove_selected_custom_service(self):
+        selected_items = self.custom_list.selectedItems()
+        if not selected_items:
+            QMessageBox.warning(self, "Warning", "No service selected!")
+            return
+        names = [item.text() for item in selected_items]
+        confirm = QMessageBox.question(
+            self,
+            "Confirm Removal",
+            f"Are you sure you want to remove {len(names)} service(s)?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if confirm == QMessageBox.StandardButton.Yes:
+            for name in names:
+                if name in self.custom_services:
+                    del self.custom_services[name]
+            self.populate_custom_list()
+            self.save_custom_services()
+            QMessageBox.information(self, "Info", "Selected services removed successfully!")
 
     def validate_url(self, url: str) -> bool:
         try:
@@ -2255,39 +2313,10 @@ class ModernMainWindow(QMainWindow):
     def validate_host(self, host: str) -> bool:
         if self.validate_ip(host):
             return True
-
         if len(host) > 253:
             return False
-
         pattern = r'^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$'
         return re.match(pattern, host) is not None
-
-    def remove_selected_custom_service(self):
-        selected_items = self.custom_list.selectedItems()
-        if not selected_items:
-            QMessageBox.warning(self, "Warning", "No service selected!")
-            return
-
-        if len(selected_items) > 1:
-            QMessageBox.warning(self, "Warning", "Please select only one service to remove!")
-            return
-
-        item = selected_items[0]
-        name = item.text()
-
-        confirm = QMessageBox.question(
-            self,
-            "Confirm Removal",
-            f"Are you sure you want to remove service '{name}'?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-
-        if confirm == QMessageBox.StandardButton.Yes:
-            if name in self.custom_services:
-                del self.custom_services[name]
-                self.populate_custom_list()
-                self.save_custom_services()
-                QMessageBox.information(self, "Info", f"Service '{name}' removed successfully!")
 
     def load_dashboard(self):
         dashboard_html = f"""
@@ -2445,7 +2474,7 @@ class ModernMainWindow(QMainWindow):
                     <h2>System Information</h2>
                     <p><strong>OS:</strong> {platform.system()} {platform.release()}</p>
                     <p><strong>Version:</strong> {APP_VERSION}</p>
-                    <p><strong>Release Date:</strong> 08.07.2025</p>
+                    <p><strong>Release Date:</strong> 12.07.2025</p>
                     <div class="status status-unknown">Beta version</div>
                 </div>
                 <div class="card">
@@ -2453,6 +2482,7 @@ class ModernMainWindow(QMainWindow):
                     <p>Use the buttons in the toolbar to perform quick actions:</p>
                     <ul style="color: {COLORS["text_secondary"]}; padding-left: 20px; font-family: 'Segoe UI';">
                         <li>Check All Services</li>
+                        <li>Check Selected Services</li>
                         <li>Clear Results</li>
                         <li>View Settings</li>
                     </ul>
@@ -2484,34 +2514,25 @@ class ModernMainWindow(QMainWindow):
                     </ul>
                     <div class="warning">
                         <h3>Important Note:</h3>
-                        <p>The results provided by this software are based on network connectivity tests and may not be 100% accurate. There might be false positives or false negatives due to various factors including network fluctuations, temporary service outages, or firewall configurations.</p>
+                        <p>The results provided by this software are based on network connectivity tests and may not be 100% accurate.</p>
+                        <p>There might be false positives or false negatives due to various factors including network fluctuations, temporary service outages, or firewall configurations.</p>
                         <p>The application provides its best effort to determine service availability, but results should be interpreted with this limitation in mind.</p>
                     </div>
                 </div>
                 <div class="card">
                     <h2>Help & Support</h2>
                     <div class="contact-info">
-                        <div class="contact-item">Telegram: <span class="contact-link" onclick="copyToClipboard('{TELEGRAM_CHANNEL}')">{TELEGRAM_CHANNEL}</span></div>
-                        <div class="contact-item">YouTube: <span class="contact-link" onclick="copyToClipboard('{YOUTUBE_CHANNEL}')">{YOUTUBE_CHANNEL}</span></div>
-                        <div class="contact-item">Email: <span class="contact-link" onclick="copyToClipboard('{SUPPORT_EMAIL}')">{SUPPORT_EMAIL}</span></div>
-                        <div class="contact-item">Support: <span class="contact-link" onclick="copyToClipboard('{DONATION_LINK}')">{DONATION_LINK}</span></div>
+                        <div class="contact-item">Telegram: <a class="contact-link" href="{TELEGRAM_CHANNEL}" target="_blank">{TELEGRAM_CHANNEL}</a></div>
+                        <div class="contact-item">YouTube: <a class="contact-link" href="{YOUTUBE_CHANNEL}" target="_blank">{YOUTUBE_CHANNEL}</a></div>
+                        <div class="contact-item">Email: <a class="contact-link" href="mailto:{SUPPORT_EMAIL}">{SUPPORT_EMAIL}</a></div>
+                        <div class="contact-item">Support: <a class="contact-link" href="{DONATION_LINK}" target="_blank">{DONATION_LINK}</a></div>
                     </div>
                 </div>
             </div>
-            <script>
-                function copyToClipboard(text) {{
-                    navigator.clipboard.writeText(text).then(function() {{
-                        alert('Copied to clipboard: ' + text);
-                    }}).catch(function(err) {{
-                        console.error('Could not copy text: ', err);
-                    }});
-                }}
-            </script>
         </body>
         </html>
         """
         self.web_view.setHtml(dashboard_html)
-
         class UrlInterceptor(QWebEngineUrlRequestInterceptor):
             def interceptRequest(self, info):
                 url = info.requestUrl().toString()
@@ -2519,7 +2540,6 @@ class ModernMainWindow(QMainWindow):
                     QDesktopServices.openUrl(QUrl(url))
                     return True
                 return False
-
         interceptor = UrlInterceptor()
         self.web_view.page().profile().setUrlRequestInterceptor(interceptor)
 
@@ -2528,15 +2548,13 @@ class ModernMainWindow(QMainWindow):
         if not self.validate_ip(dns_server):
             QMessageBox.warning(self, "Invalid DNS Server", "Please enter a valid IP address for the DNS server!")
             return
-
         self.timeout = self.timeout_spin.value()
         self.dns_server = dns_server
         self.save_settings()
-
         QMessageBox.information(
             self,
             "Info",
-            "Settings applied successfully!\n\n"
+            f"Settings applied successfully!\n\n"
             f"Timeout: {self.timeout} seconds\n"
             f"DNS Server: {self.dns_server}"
         )
@@ -2551,16 +2569,12 @@ def main():
     app.setStyle(QStyleFactory.create("Fusion"))
     font = QFont("Segoe UI", 11)
     app.setFont(font)
-
     if platform.system() == "Windows":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-    window = ModernMainWindow()
-    window.show()
-
+    main_window = MainWindow()
+    main_window.show()
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)
-
     try:
         loop.run_forever()
     except KeyboardInterrupt:
